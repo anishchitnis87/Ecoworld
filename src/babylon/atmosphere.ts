@@ -40,9 +40,11 @@ export interface AtmosphereRef {
 }
 
 // ─── BANYAN SEED GROWTH ───────────────────────────────────────────────────────
+// FIX: was 'ORB' — backend sends "GLOWING_ORB" (EcoZoneService.deriveSeedStage).
+// Must match SeedStage in @/types and SEED_EMOJI in components/TopBar.tsx.
 const BANYAN_SCALES: Record<SeedStage, number> = {
     NONE:             0.08,
-    ORB:              0.18,
+    GLOWING_ORB:      0.18,
     SAPLING:          0.35,
     YOUNG_TREE:       0.58,
     GUARDIAN_TREE:    0.82,

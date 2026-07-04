@@ -8,9 +8,13 @@ interface Props {
     postToRN: (obj: Record<string, unknown>) => void;
 }
 
+// FIX: was 'ORB' — the backend (EcoZoneService.deriveSeedStage) actually sends
+// "GLOWING_ORB". This key must match SeedStage in @/types and BANYAN_SCALES
+// in babylon/atmosphere.ts — all three are separate lookup tables keyed by
+// the same stage string, so they can silently drift out of sync like this did.
 const SEED_EMOJI: Record<string, string> = {
     NONE:             '🌰',
-    ORB:              '✨',
+    GLOWING_ORB:      '✨',
     SAPLING:          '🌱',
     YOUNG_TREE:       '🌿',
     GUARDIAN_TREE:    '🌳',

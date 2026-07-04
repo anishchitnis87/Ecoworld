@@ -5,6 +5,14 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no,viewport-fit=cover" />
     <meta name="theme-color" content="#050e05" />
+    <!-- FIX: makes sure this HTML shell is always revalidated, never served
+         stale from any HTTP cache (proxy/CDN/WebView) — pairs with the
+         cacheMode="LOAD_DEFAULT" fix in mobile/EcoWorldScreen.tsx. Only this
+         tiny document is affected; Vite's content-hashed JS/CSS chunks below
+         are unaffected and still cache long-term, so this costs nothing. -->
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
     <title>EcoWorld — EcoQuest</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />

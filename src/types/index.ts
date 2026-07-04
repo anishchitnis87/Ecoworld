@@ -1,7 +1,12 @@
 // ─── Seed Stages ───────────────────────────────────────────────────────────────
+// FIX: must match EcoZoneService.deriveSeedStage() on the backend exactly —
+// it was sending "GLOWING_ORB" while this type (and every lookup table below)
+// only recognised "ORB". Students with 5-9 EcoWorld contributions therefore
+// got an unrecognised stage: the icon and tree scale both silently fell back
+// to the NONE/seed defaults instead of showing the orb.
 export type SeedStage =
     | 'NONE'
-    | 'ORB'
+    | 'GLOWING_ORB'
     | 'SAPLING'
     | 'YOUNG_TREE'
     | 'GUARDIAN_TREE'
@@ -100,7 +105,7 @@ export function tToHealthState(t: number): HealthState {
 // ─── Seed Stage Emoji Map ──────────────────────────────────────────────────────
 export const SEED_STAGE_EMOJI: Record<SeedStage, string> = {
     NONE: '🌰',
-    ORB: '✨',
+    GLOWING_ORB: '✨',
     SAPLING: '🌱',
     YOUNG_TREE: '🌿',
     GUARDIAN_TREE: '🌳',
@@ -109,7 +114,7 @@ export const SEED_STAGE_EMOJI: Record<SeedStage, string> = {
 
 export const SEED_STAGE_LABEL: Record<SeedStage, string> = {
     NONE: 'Seed',
-    ORB: 'Orb',
+    GLOWING_ORB: 'Glowing Orb',
     SAPLING: 'Sapling',
     YOUNG_TREE: 'Young Tree',
     GUARDIAN_TREE: 'Guardian',
