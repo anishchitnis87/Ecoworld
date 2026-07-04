@@ -206,6 +206,45 @@ export function initEngine(canvas: HTMLCanvasElement): EngineRef {
     return { engine, scene, camera, sun, amb, shadows };
 }
 
+// ─── Lighting colour ramps ─────────────────────────────────────────────────
+// FIX: these five arrays used to be rebuilt from scratch inside
+// updateLighting() on EVERY frame — ~25 `new Color3()` allocations per call,
+// 60 times a second, for data that never actually changes (only the
+// interpolation blend `fr` between entries changes). That's pure GC
+// pressure with zero benefit, and a real contributor to stutter in
+// constrained environments like a WebView. Hoisted to module scope so
+// they're allocated exactly once.
+const SUN_DIFFUSE_RAMP: Color3[] = [
+    new Color3(1.00,0.85,0.52), new Color3(0.98,0.82,0.48),
+    new Color3(0.88,0.76,0.42), new Color3(0.70,0.58,0.30),
+    new Color3(0.38,0.30,0.16),
+];
+const SUN_SPECULAR_RAMP: Color3[] = [
+    new Color3(1.00,0.80,0.45), new Color3(0.98,0.76,0.40),
+    new Color3(0.88,0.70,0.35), new Color3(0.70,0.52,0.25),
+    new Color3(0.38,0.26,0.12),
+];
+const SUN_INTENSITY_RAMP = [1.55, 1.45, 1.05, 0.60, 0.22];
+
+const AMBIENT_DIFFUSE_RAMP: Color3[] = [
+    new Color3(0.45,0.58,0.78), new Color3(0.42,0.54,0.72),
+    new Color3(0.38,0.38,0.35), new Color3(0.28,0.24,0.16),
+    new Color3(0.14,0.11,0.07),
+];
+const AMBIENT_GROUND_RAMP: Color3[] = [
+    new Color3(0.20,0.17,0.08), new Color3(0.18,0.15,0.07),
+    new Color3(0.16,0.13,0.05), new Color3(0.12,0.09,0.03),
+    new Color3(0.06,0.04,0.02),
+];
+const AMBIENT_INTENSITY_RAMP = [0.42, 0.42, 0.52, 0.62, 0.72];
+
+const FOG_COLOR_RAMP: Color3[] = [
+    new Color3(0.55,0.75,0.92), new Color3(0.52,0.70,0.85),
+    new Color3(0.48,0.46,0.40), new Color3(0.42,0.30,0.14),
+    new Color3(0.12,0.08,0.04),
+];
+const FOG_DENSITY_RAMP = [0.018, 0.020, 0.028, 0.040, 0.062];
+
 // ─── updateLighting ──────────────────────────────────────────────────────────
 // Called every frame from App.tsx render loop.
 // Animates sun arc + reacts to healthT.
@@ -229,47 +268,16 @@ export function updateLighting(ref: EngineRef, healthT: number, worldTime: numbe
     const lo   = Math.min(Math.floor(s), 3);
     const fr   = s - lo;
 
-    const sunDiff = [
-        new Color3(1.00,0.85,0.52), new Color3(0.98,0.82,0.48),
-        new Color3(0.88,0.76,0.42), new Color3(0.70,0.58,0.30),
-        new Color3(0.38,0.30,0.16),
-    ];
-    const sunSpec = [
-        new Color3(1.00,0.80,0.45), new Color3(0.98,0.76,0.40),
-        new Color3(0.88,0.70,0.35), new Color3(0.70,0.52,0.25),
-        new Color3(0.38,0.26,0.12),
-    ];
-    const sunInt  = [1.55, 1.45, 1.05, 0.60, 0.22];
+    sun.diffuse   = lerpColor(SUN_DIFFUSE_RAMP[lo],  SUN_DIFFUSE_RAMP[lo+1],  fr);
+    sun.specular  = lerpColor(SUN_SPECULAR_RAMP[lo], SUN_SPECULAR_RAMP[lo+1], fr);
+    sun.intensity = lerp(SUN_INTENSITY_RAMP[lo], SUN_INTENSITY_RAMP[lo+1], fr);
 
-    const ambDiff = [
-        new Color3(0.45,0.58,0.78), new Color3(0.42,0.54,0.72),
-        new Color3(0.38,0.38,0.35), new Color3(0.28,0.24,0.16),
-        new Color3(0.14,0.11,0.07),
-    ];
-    const ambGnd = [
-        new Color3(0.20,0.17,0.08), new Color3(0.18,0.15,0.07),
-        new Color3(0.16,0.13,0.05), new Color3(0.12,0.09,0.03),
-        new Color3(0.06,0.04,0.02),
-    ];
-    const ambInt = [0.42, 0.42, 0.52, 0.62, 0.72];
+    amb.diffuse     = lerpColor(AMBIENT_DIFFUSE_RAMP[lo], AMBIENT_DIFFUSE_RAMP[lo+1], fr);
+    amb.groundColor = lerpColor(AMBIENT_GROUND_RAMP[lo],  AMBIENT_GROUND_RAMP[lo+1],  fr);
+    amb.intensity   = lerp(AMBIENT_INTENSITY_RAMP[lo], AMBIENT_INTENSITY_RAMP[lo+1], fr);
 
-    const fogCol = [
-        new Color3(0.55,0.75,0.92), new Color3(0.52,0.70,0.85),
-        new Color3(0.48,0.46,0.40), new Color3(0.42,0.30,0.14),
-        new Color3(0.12,0.08,0.04),
-    ];
-     const fogDen = [0.018, 0.020, 0.028, 0.040, 0.062];
-
-    sun.diffuse   = lerpColor(sunDiff[lo], sunDiff[lo+1], fr);
-    sun.specular  = lerpColor(sunSpec[lo], sunSpec[lo+1], fr);
-    sun.intensity = lerp(sunInt[lo],  sunInt[lo+1],  fr);
-
-    amb.diffuse     = lerpColor(ambDiff[lo], ambDiff[lo+1], fr);
-    amb.groundColor = lerpColor(ambGnd[lo],  ambGnd[lo+1],  fr);
-    amb.intensity   = lerp(ambInt[lo], ambInt[lo+1], fr);
-
-    scene.fogColor   = lerpColor(fogCol[lo], fogCol[lo+1], fr);
-    scene.fogDensity = lerp(fogDen[lo], fogDen[lo+1], fr);
+    scene.fogColor   = lerpColor(FOG_COLOR_RAMP[lo], FOG_COLOR_RAMP[lo+1], fr);
+    scene.fogDensity = lerp(FOG_DENSITY_RAMP[lo], FOG_DENSITY_RAMP[lo+1], fr);
 
     ref.shadows.setDarkness(lerp(0.35, 0.55, healthT));
 }
