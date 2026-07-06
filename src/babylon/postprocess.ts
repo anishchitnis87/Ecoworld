@@ -20,6 +20,13 @@
 import { Scene, ArcRotateCamera, DefaultRenderingPipeline, ColorCurves } from '@babylonjs/core';
 import { lerp } from './engine';
 
+// See FIX note inside updatePostProcessing() below — contrast/exposure
+// setters are expensive in this Babylon version, unlike every other
+// property touched in that function.
+let _lastContrast = 1.05; // must match the init value set in buildPostProcessing
+let _lastExposure = 1.00; // must match the init value set in buildPostProcessing
+const POSTFX_CHANGE_THRESHOLD = 0.003;
+
 export interface PPRef {
     pipeline: DefaultRenderingPipeline;
 }
@@ -87,9 +94,27 @@ export function updatePostProcessing(ref: PPRef | null, healthT: number): void {
             pp.imageProcessing.colorCurves.globalSaturation = lerp(105, 28, healthT);
         }
 
-        // Contrast and exposure dim as world dies
-        pp.imageProcessing.contrast = lerp(1.05, 0.88, healthT);
-        pp.imageProcessing.exposure = lerp(1.00, 0.70, healthT);
+        // FIX: contrast/exposure are NOT plain uniform passthroughs in this
+        // Babylon version — their setters unconditionally call
+        // _updateParameters(), which fires notifyObservers() ->
+        // _markAllSubMeshesAsImageProcessingDirty(), a scene-wide walk over
+        // every submesh's material. Confirmed via CPU profile: these two
+        // setters alone accounted for 16+ of ~20 seconds in a captured
+        // trace, because this function runs every frame and healthT is
+        // essentially always fractionally different (continuous lerp in
+        // tickHealthT). Every other property here is a cheap plain uniform
+        // and does NOT need this guard — only contrast/exposure do.
+        const newContrast = lerp(1.05, 0.88, healthT);
+        if (Math.abs(newContrast - _lastContrast) > POSTFX_CHANGE_THRESHOLD) {
+            pp.imageProcessing.contrast = newContrast;
+            _lastContrast = newContrast;
+        }
+
+        const newExposure = lerp(1.00, 0.70, healthT);
+        if (Math.abs(newExposure - _lastExposure) > POSTFX_CHANGE_THRESHOLD) {
+            pp.imageProcessing.exposure = newExposure;
+            _lastExposure = newExposure;
+        }
 
         // Chromatic aberration amount: 0 when healthy, up to 9 when collapsed.
         // Never toggle chromaticAberrationEnabled — drive amount to 0 instead.
