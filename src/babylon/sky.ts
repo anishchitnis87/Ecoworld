@@ -224,6 +224,18 @@ export function buildSky(scene: Scene): SkyRef {
 // updateSky
 // ─────────────────────────────────────────────
 
+// FIX: this used to run unconditionally every frame. tickHealthT() lerps
+// healthT toward its target continuously, so it's rarely bit-for-bit
+// identical frame-to-frame even when visually static — but paintGradient()
+// does a full-canvas fillRect + gradient construction + tex.update() (a
+// full GPU texture re-upload), which is one of the most expensive things
+// happening per frame in this scene. Skipping repaints below a threshold
+// that's visually imperceptible removes the vast majority of that cost
+// while still updating promptly (within ~1 frame) whenever the score
+// actually changes meaningfully.
+let _lastPaintedHealthT = -1;
+const SKY_REPAINT_THRESHOLD = 0.0015;
+
 export function updateSky(
     ref: SkyRef,
     healthT: number,
@@ -232,7 +244,10 @@ export function updateSky(
 ): void {
     const s = sampleSkyRamp(healthT);
 
-    paintGradient(ref.tex, s);
+    if (Math.abs(healthT - _lastPaintedHealthT) > SKY_REPAINT_THRESHOLD) {
+        paintGradient(ref.tex, s);
+        _lastPaintedHealthT = healthT;
+    }
 
     scene.clearColor = new Color4(s.horizon.r, s.horizon.g, s.horizon.b, 1);
 

@@ -167,7 +167,15 @@ export function buildAtmosphere(scene: Scene, banyanNode: TransformNode): Atmosp
     _currentScale = _targetScale; // snap on load
 
     // ── SYSTEM 1 — SMOG PARTICLE SYSTEM ──────────────────────────────────────
-    const smogSystem = new ParticleSystem('smog', 1800, scene);
+    // FIX: capacity was 1800. This is a CPU-simulated ParticleSystem (not
+    // GPU-accelerated), and it scales UP specifically as the zone's health
+    // *degrades* — which happens automatically via nightly decay whenever
+    // eco actions stop being logged. A zone that looks fine today can drift
+    // into "smoggy" territory a few days later purely from inactivity,
+    // silently loading up to 1800 alpha-blended, depth-sorted particles
+    // that weren't there during an earlier test on a healthier zone.
+    // Capped to a ceiling that's still visually smoggy but far cheaper.
+    const smogSystem = new ParticleSystem('smog', 700, scene);
     smogSystem.emitter = new Vector3(0, 8, 0);
 
     // Box emitter with custom bounds
@@ -202,7 +210,8 @@ export function buildAtmosphere(scene: Scene, banyanNode: TransformNode): Atmosp
     smogSystem.start();
 
     // ── SYSTEM 2 — DUST/ASH PARTICLES ───────────────────────────────────────
-    const dustSystem = new ParticleSystem('dust', 600, scene);
+    // FIX: capacity was 600 — same reasoning as smogSystem above.
+    const dustSystem = new ParticleSystem('dust', 280, scene);
     dustSystem.emitter = new Vector3(0, 1, 0);
 
     // Box emitter with custom bounds
@@ -272,7 +281,7 @@ export function updateAtmosphere(ref: AtmosphereRef, healthT: number, worldTime:
         ref.smogSystem.colorDead.a = 0.0;
     } else {
         const progress = (hT - 0.45) / 0.55;
-        ref.smogSystem.emitRate = Math.round(progress * 1800);
+        ref.smogSystem.emitRate = Math.round(progress * 700); // was 1800 — see capacity note in buildAtmosphere
         const particleAlpha = progress * 0.22;
         ref.smogSystem.color1.a = particleAlpha;
         ref.smogSystem.color2.a = particleAlpha;
@@ -287,7 +296,7 @@ export function updateAtmosphere(ref: AtmosphereRef, healthT: number, worldTime:
         ref.dustSystem.colorDead.a = 0.0;
     } else {
         const dustProgress = (hT - 0.70) / 0.30;
-        ref.dustSystem.emitRate = Math.round(dustProgress * 180);
+        ref.dustSystem.emitRate = Math.round(dustProgress * 140); // was 180 — see capacity note in buildAtmosphere
         const dustAlpha = dustProgress * 0.55;
         ref.dustSystem.color1.a = dustAlpha;
         ref.dustSystem.color2.a = dustAlpha;

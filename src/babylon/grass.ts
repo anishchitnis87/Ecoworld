@@ -463,18 +463,33 @@ const FOG_COLORS = [
     new Color3(0.14, 0.10, 0.05), // 1.00 COLLAPSED
 ];
 
-function sampleRamp(arr: Color3[], healthT: number): Color3 {
+// Separate persistent scratch objects for sampleRamp() — one per uniform,
+// deliberately NOT shared across uniforms. ShaderMaterial.setColor3() may
+// read the object's r/g/b lazily at bind time rather than copying
+// immediately, so reusing a single scratch across different uniforms in
+// the same frame could make them all resolve to whichever was written
+// last. Four separate persistent objects avoid that risk entirely while
+// still costing zero allocation per frame.
+const _groundRampScratch   = new Color3();
+const _ambientRampScratch  = new Color3();
+const _sssRampScratch      = new Color3();
+const _fogRampScratch      = new Color3();
+
+function sampleRamp(arr: Color3[], healthT: number, out?: Color3): Color3 {
     const n  = arr.length - 1;
     const t0 = Math.max(0, Math.min(1, healthT)) * n;
     const lo = Math.min(Math.floor(t0), n - 1);
     const f  = t0 - lo;
     const a  = arr[lo];
     const b  = arr[lo + 1];
-    return new Color3(
-        a.r + (b.r - a.r) * f,
-        a.g + (b.g - a.g) * f,
-        a.b + (b.b - a.b) * f,
-    );
+    const r = a.r + (b.r - a.r) * f;
+    const g = a.g + (b.g - a.g) * f;
+    const bl = a.b + (b.b - a.b) * f;
+    if (out) {
+        out.set(r, g, bl);
+        return out;
+    }
+    return new Color3(r, g, bl);
 }
 
 function airToWind(air: number): { strength: number; turbulence: number } {
@@ -527,10 +542,10 @@ export function updateGrass(
     ref.mat.setVector3('uSunDir',    sunDirToSun);
     ref.mat.setColor3('uSunColor',   sunColor);
 
-    ref.mat.setColor3('uGroundColor',  sampleRamp(GROUND_COLORS,  healthT));
-    ref.mat.setColor3('uAmbientColor', sampleRamp(AMBIENT_COLORS, healthT));
-    ref.mat.setColor3('uSSSTint',      sampleRamp(SSS_TINTS,      healthT));
-    ref.mat.setColor3('uFogColor',     sampleRamp(FOG_COLORS,     healthT));
+    ref.mat.setColor3('uGroundColor',  sampleRamp(GROUND_COLORS,  healthT, _groundRampScratch));
+    ref.mat.setColor3('uAmbientColor', sampleRamp(AMBIENT_COLORS, healthT, _ambientRampScratch));
+    ref.mat.setColor3('uSSSTint',      sampleRamp(SSS_TINTS,      healthT, _sssRampScratch));
+    ref.mat.setColor3('uFogColor',     sampleRamp(FOG_COLORS,     healthT, _fogRampScratch));
 
     // Fog distance tightens as health drops — smog closes in
     ref.mat.setFloat('uFogStart', 18.0);
